@@ -20,6 +20,17 @@
       color: #a6e6a1;
       text-shadow: 0 0 6px #4caf50;
     }
+    .online-counter {
+      text-align: center;
+      margin-bottom: 1rem;
+      color: #a6e6a1;
+      font-size: 1.1rem;
+    }
+    .online-counter span {
+      font-weight: bold;
+      color: #6bd96b;
+      text-shadow: 0 0 5px #4caf50;
+    }
     label {
       display: block;
       margin-top: 1rem;
@@ -173,13 +184,14 @@
 </head>
 <body>
 <h1>BOT DARK PAINÉIS LATERAIS</h1>
-
+<div class="online-counter">
+  Usuários online: <span id="onlineCount">0</span>
+</div>
 <div class="warning">
   <strong>Aviso:</strong> SIGA CORRETAMENTE AS INSTRUÇÕES E NOS AJUDE A CONTINUAR. 
   COM NOSSO PROJETO, ENTRE NOS GRUPOS: https://t.me/MUNDO_DOS_BOTS 
   E https://t.me/+NZKQihNgc7hkYjUx.
 </div>
-
 <label for="m3uInput">Cole o link M3U (contendo usuário e senha):</label>
 <div class="m3u-container">
   <input type="text" id="m3uInput" placeholder="http://exemplo.com/get.php?username=USER&password=PASS&type=m3u_plus" />
@@ -203,7 +215,6 @@
 </div>
 <div id="progress"></div>
 <div id="validList"></div>
-
 <!-- Seção nova pedida -->
 <div id="footerSection">
   <div>FEITO POR DARK MENSAGEIRO E COLABORADOR HIDAN IMORTAL</div>
@@ -214,7 +225,6 @@
     <a href="https://t.me/+EilVL2nDETdlODQx" target="_blank" rel="noopener noreferrer">GRUPO TELEGRAM 3</a>
   </div>
 </div>
-
 <script>
 const m3uInput = document.getElementById("m3uInput");
 const speedSelect = document.getElementById("speedSelect");
@@ -225,6 +235,7 @@ const downloadBtn = document.getElementById("downloadBtn");
 const progressDiv = document.getElementById("progress");
 const validListDiv = document.getElementById("validList");
 const checkM3UBtn = document.getElementById("checkM3UBtn");
+const onlineCountSpan = document.getElementById("onlineCount");
 let validServers = [];
 let testedServers = 0;
 let totalServers = 0;
@@ -233,11 +244,78 @@ let password = "";
 let hostname = "";
 let hostnameDomain = ""; // domínio sem porta para título
 let isRunning = false;
-
 // URL base da API - será diferente no Vercel
 const API_BASE = window.location.hostname.includes('vercel.app') 
   ? `${window.location.origin}/api` 
   : '';
+
+// Contador de usuários online
+const STORAGE_KEY = 'activeTabs';
+const TAB_ID_KEY = 'tabId';
+const TIMEOUT = 30000; // 30 segundos
+let tabId;
+
+function generateTabId() {
+  return Date.now().toString(36) + Math.random().toString(36).substr(2);
+}
+
+function updateTimestamp() {
+  const activeTabs = getActiveTabs();
+  activeTabs[tabId] = Date.now();
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(activeTabs));
+}
+
+function getActiveTabs() {
+  const data = localStorage.getItem(STORAGE_KEY);
+  return data ? JSON.parse(data) : {};
+}
+
+function checkActiveTabs() {
+  const activeTabs = getActiveTabs();
+  const now = Date.now();
+  let count = 0;
+
+  // Limpa as abas inativas (mais de TIMEOUT)
+  for (const id in activeTabs) {
+    if (now - activeTabs[id] > TIMEOUT) {
+      delete activeTabs[id];
+    } else {
+      count++;
+    }
+  }
+
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(activeTabs));
+  onlineCountSpan.textContent = count;
+}
+
+function removeTab() {
+  const activeTabs = getActiveTabs();
+  delete activeTabs[tabId];
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(activeTabs));
+}
+
+function initTab() {
+  // Verifica se já temos um tabId no sessionStorage
+  tabId = sessionStorage.getItem(TAB_ID_KEY);
+  if (!tabId) {
+    tabId = generateTabId();
+    sessionStorage.setItem(TAB_ID_KEY, tabId);
+  }
+  updateTimestamp();
+  setInterval(updateTimestamp, 10000); // Atualiza a cada 10 segundos
+  setInterval(checkActiveTabs, 5000); // Verifica a cada 5 segundos
+  checkActiveTabs(); // Verificação inicial
+}
+
+window.addEventListener('beforeunload', removeTab);
+window.addEventListener('storage', (event) => {
+  if (event.key === STORAGE_KEY) {
+    checkActiveTabs();
+  }
+});
+
+// Inicializa o contador de usuários online
+initTab();
 
 function extrairUserPass(url) {
   try {
@@ -250,7 +328,6 @@ function extrairUserPass(url) {
     return null;
   }
 }
-
 async function lerServidoresDoLink() {
   try {
     const response = await fetch("https://raw.githubusercontent.com/guedescomvc2025-bot/dnscheker/main/DNSCHECKER.txt");
@@ -277,7 +354,6 @@ async function lerServidoresDoLink() {
     return [];
   }
 }
-
 async function testarServidor(servidor, user, pass) {
   const apiUrl = `${servidor.replace(/\/+$/, "")}/player_api.php?username=${encodeURIComponent(user)}&password=${encodeURIComponent(pass)}`;
   
@@ -321,15 +397,12 @@ async function testarServidor(servidor, user, pass) {
     return false;
   }
 }
-
 function montarLinkM3U(server, user, pass) {
   return `${server.replace(/\/+$/, "")}/get.php?username=${encodeURIComponent(user)}&password=${encodeURIComponent(pass)}&type=m3u_plus`;
 }
-
 function extrairDominio(hostnameWithPort) {
   return hostnameWithPort.split(":")[0];
 }
-
 function atualizarListaValidos() {
   hostnameDomain = extrairDominio(hostname);
   
@@ -356,7 +429,6 @@ function atualizarListaValidos() {
     downloadBtn.style.display = "none";
   }
 }
-
 function copiarResultado() {
   hostnameDomain = extrairDominio(hostname);
   
@@ -380,7 +452,6 @@ function copiarResultado() {
     fallbackCopyText(texto);
   }
 }
-
 function fallbackCopyText(text) {
   const textarea = document.createElement("textarea");
   textarea.value = text;
@@ -397,7 +468,6 @@ function fallbackCopyText(text) {
   }
   document.body.removeChild(textarea);
 }
-
 function baixarResultado() {
   const blob = new Blob([validListDiv.textContent], { type: "text/plain;charset=utf-8" });
   const link = document.createElement("a");
@@ -407,7 +477,6 @@ function baixarResultado() {
   link.click();
   document.body.removeChild(link);
 }
-
 async function verificarM3U(url) {
   checkM3UBtn.disabled = true;
   checkM3UBtn.textContent = "Verificando...";
@@ -441,7 +510,6 @@ async function verificarM3U(url) {
   checkM3UBtn.textContent = "Verificar M3U";
   checkM3UBtn.classList.remove("checking");
 }
-
 async function iniciarTeste() {
   if (isRunning) return;
   
@@ -507,7 +575,6 @@ async function iniciarTeste() {
   startBtn.disabled = false;
   stopBtn.disabled = true;
 }
-
 function pararTeste() {
   if (!isRunning) return;
   isRunning = false;
@@ -515,7 +582,6 @@ function pararTeste() {
   startBtn.disabled = false;
   progressDiv.textContent += " (Parando...)";
 }
-
 function resetUI() {
   isRunning = false;
   startBtn.disabled = false;
@@ -528,7 +594,6 @@ function resetUI() {
   testedServers = 0;
   totalServers = 0;
 }
-
 startBtn.addEventListener("click", iniciarTeste);
 stopBtn.addEventListener("click", pararTeste);
 copyBtn.addEventListener("click", copiarResultado);
